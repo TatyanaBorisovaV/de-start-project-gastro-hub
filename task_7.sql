@@ -33,7 +33,9 @@ WHERE m.manager_uuid = correct_cte.manager_uuid;
 BEGIN; -- Открываем транзакцию для блокировки записей для изменений, но доступ для чтения таблицы будет открыт для пользователей. 
 /*Теперь сортируем по алфавиту поле с ФИО и ранжируем для того, чтобы использовать этот номер в телефоне. 
 Проранжируем отсортированные данные и добавим этот ранж в номер телефона.*/ 
-SELECT * FROM cafe.managers FOR SHARE;
+LOCK TABLE products IN ACCESS SHARE MODE; -- Блокируем таблицу для внесения изменений данных.
+
+ALTER TABLE cafe.managers ADD COLUMN phone VARCHAR[]; -- Добавляем в таблицу новый столбец с типом для массива.
 
 WITH rank_fio AS( 
 	SELECT *, 
@@ -41,12 +43,13 @@ WITH rank_fio AS(
 	FROM cafe.managers
 )
 UPDATE cafe.managers AS m
-SET manager_phone = ARRAY['8-800-2500-' || (100 + rank_fio.rank::integer - 1)::text, m.manager_phone::text]
+SET phone = ARRAY['8-800-2500-' || (100 + rank_fio.rank::integer - 1)::text, m.manager_phone::text] -- Формируем 2 телефона в массив созданной колонки.
 FROM rank_fio 
 WHERE m.manager_uuid = rank_fio.manager_uuid;
 
--- проверка:
-SELECT * FROM cafe.managers;
+SELECT * FROM cafe.managers; -- Проверка строк таблицы, убеждаемся, что верно вставлены телефоны в массив.
+ALTER TABLE cafe.managers DROP COLUMN manager_phone; -- Удаляем ненужный столбец со старым телефоном.
+
 ROLLBACK; -- Откатка, в случае, если я накосячу. Пусть побудет тут!
 COMMIT; -- Завершение успешной транзакции.
 
